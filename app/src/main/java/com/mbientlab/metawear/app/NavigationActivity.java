@@ -334,7 +334,7 @@ public class NavigationActivity extends AppCompatActivity implements NavigationV
             File filePath= (File) path;
 
             addMimeType(filePath.getAbsolutePath());
-            dfuParameters.putExtra(DfuBaseService.EXTRA_FILE_PATH, filePath);
+            dfuParameters.putExtra(DfuBaseService.EXTRA_FILE_PATH, filePath.getAbsolutePath());
         } else if (path instanceof Uri){
             Uri uriPath= (Uri) path;
 

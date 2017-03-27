@@ -24,14 +24,39 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
+
+        <!--<activity-->
+            <!--android:name=".MultiMainActivity"-->
+            <!--android:label="MetaWear"-->
+            <!--android:theme="@style/AppTheme.NoActionBar" >-->
+        <!--<intent-filter>-->
+            <!--<action android:name="android.intent.action.MAIN" />-->
+
+            <!--<category android:name="android.intent.category.LAUNCHER" />-->
+        <!--</intent-filter>-->
+        <!--</activity>-->
+
         <activity
             android:name=".ScannerActivity"
-            android:label="@string/app_name" >
+            android:label="MetaWear"
+            android:theme="@style/AppTheme.NoActionBar" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+
+
+        <activity
+            android:name=".ScannerGetNameActivity">
+
+            <!--<intent-filter>-->
+                <!--<action android:name="android.intent.action.MAIN" />-->
+
+                <!--<category android:name="android.intent.category.LAUNCHER" />-->
+            <!--</intent-filter>-->
         </activity>
         <activity
             android:name=".NavigationActivity"

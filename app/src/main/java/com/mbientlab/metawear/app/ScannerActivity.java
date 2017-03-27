@@ -36,7 +36,7 @@ public class ScannerActivity extends AppCompatActivity implements ScannerCommuni
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scanner);
 
-        getApplicationContext().bindService(new Intent(this, MetaWearBleService.class), this, BIND_AUTO_CREATE);
+        getApplicationContext().bindService(new Intent(this, MetaWearBleService.class), this, BIND_AUTO_CREATE); // move to navigationActivity
     }
 
     @Override

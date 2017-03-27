@@ -33,6 +33,7 @@ package com.mbientlab.metawear.app;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.util.Log;
 
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
@@ -51,31 +52,88 @@ import java.util.Locale;
  * Created by etsai on 8/19/2015.
  */
 public abstract class ThreeAxisChartFragment extends SensorFragment {
-    private final ArrayList<Entry> xAxisData= new ArrayList<>(), yAxisData= new ArrayList<>(), zAxisData= new ArrayList<>();
+    private final ArrayList<Entry> xAxisData= new ArrayList<>(), yAxisData= new ArrayList<>(), zAxisData= new ArrayList<>(), stepStreamData = new ArrayList<>();
     private final String dataType, streamKey;
     protected float samplePeriod;
+
+    /* WJS: fields for step detection */
+    private float   mLimit = -10.0f;
+    private float   mLastValues[] = new float[20];
+    private float   mLastDirections[] = new float[3*2];
+    public float    mPastAverage20 = 0.0f; // initial
+    public float    mAdaptiveDiff = 2.0f; // initial threshold
+    public int step;  // step detection information
+
 
     protected final AsyncOperation.CompletionHandler<RouteManager> dataStreamManager= new AsyncOperation.CompletionHandler<RouteManager>() {
         @Override
         public void success(RouteManager result) {
-            streamRouteManager= result;
-            result.subscribe(streamKey, new RouteManager.MessageHandler() {
+            streamRouteManager= result;  // a RouteManager instance
+            result.subscribe(streamKey, new RouteManager.MessageHandler() { // streamKey: gyro_stream
                 @Override
                 public void process(Message message) {
                     final CartesianFloat spin = message.getData(CartesianFloat.class);
 
                     LineData data = chart.getData();
 
+                    if (streamKey.equals("gyro_stream")) { // if gyro, perform step detection
+                        gyroStepDetection(spin);
+                    }
+
+                    // WJS: real time display
                     data.addXValue(String.format(Locale.US, "%.2f", sampleCount * samplePeriod));
                     data.addEntry(new Entry(spin.x(), sampleCount), 0);
                     data.addEntry(new Entry(spin.y(), sampleCount), 1);
                     data.addEntry(new Entry(spin.z(), sampleCount), 2);
+                    data.addEntry(new Entry((float)step, sampleCount), 3);
 
                     sampleCount++;
                 }
             });
         }
     };
+
+    // step detection algorithm (zero crossing method) for gyro_stream only
+    protected void gyroStepDetection(CartesianFloat spin) {
+        //WJS:  step detection
+
+        float Gyrox = spin.x(); // Gyrox
+        float Gyroy = spin.y(); // Gyroy
+        float Gyroz = spin.z(); // Gyroz
+
+        float v = Gyrox;
+        int k = 0;
+
+        //*** B. Zero crossing.  (in Jayalath et al 2013)
+        float v_hr = (float) 0.25*(v + 2* mLastValues[0]  + mLastValues[1]); //mLastValues: previous filtered values
+        float direction = ((v_hr > mLastValues[0]) ? 1 : ((v_hr < mLastValues[0]) ? -1 : 0));
+
+        if ( direction >0 & (v_hr > 0 & mLastValues[0] <= 0)) { // rising direction & zero-crossing time
+            if (mPastAverage20 < mLimit ) { // mlimit is threshold
+                mPastAverage20 = 0; // reset past integral to zero.
+                Log.i(streamKey, "step");
+                step = step + 1;
+//                            for (StepListener stepListener : mStepListeners) { // for all stepListeners, onStep()?
+//                                stepListener.onStep();  // updates UI text values.
+//                            }
+                mAdaptiveDiff = mPastAverage20; // temporary output (reuse output variable)
+
+            }
+
+
+        }
+        mLastDirections[0] = direction;
+
+//                float pastIntegral = 0;
+//                for (int i = 0; i < 9; i++) {
+//                    pastIntegral = pastIntegral + mLastValues[i];
+//                }
+
+        mPastAverage20 = mPastAverage20*0.95f + v_hr*0.05f; //update past integral mean of past 20 points
+        mLastValues[1] = mLastValues[0]; // shift left
+        mLastValues[0] = v_hr;  // k = 0 here
+
+    }
 
     protected ThreeAxisChartFragment(String dataType, int layoutId, int sensorResId, String streamKey, float min, float max, float sampleFreq) {
         super(sensorResId, layoutId, min, max);
@@ -125,6 +183,7 @@ public abstract class ThreeAxisChartFragment extends SensorFragment {
             xAxisData.clear();
             yAxisData.clear();
             zAxisData.clear();
+            stepStreamData.clear();
         }
 
         ArrayList<LineDataSet> spinAxisData= new ArrayList<>();
@@ -139,6 +198,10 @@ public abstract class ThreeAxisChartFragment extends SensorFragment {
         spinAxisData.add(new LineDataSet(zAxisData, "z-" + dataType));
         spinAxisData.get(2).setColor(Color.BLUE);
         spinAxisData.get(2).setDrawCircles(false);
+
+        spinAxisData.add(new LineDataSet(stepStreamData, "step-" + dataType));
+        spinAxisData.get(3).setColor(Color.BLACK);
+        spinAxisData.get(3).setDrawCircles(false);
 
         LineData data= new LineData(chartXValues);
         for(LineDataSet set: spinAxisData) {

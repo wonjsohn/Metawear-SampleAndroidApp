@@ -32,6 +32,8 @@
 <resources>
   <string name="app_name">MetaWear</string>
 
+  <string name="action_settings">Settings</string>
+
   <string name="action_reset">Reset</string>
   <string name="action_manual_dfu">Manual DFU</string>
   <string name="action_scan">Scan</string>
@@ -42,6 +44,11 @@
   <string name="description_rssi">Visual representation of the RSSI value</string>
   <string name="description_edit">Button that opens the edit popup</string>
   <string name="description_help">Opens up a help menu for the config setting</string>
+
+  <string name="text_released">Released</string>
+  <string name="text_pressed">Pressed</string>
+  <string name="text_orientation">Orientation</string>
+  <string name="text_connecting">Connecting...</string>
 
   <string name="title_firmware_update">Firmware Update</string>
   <string name="title_warning">Warning</string>

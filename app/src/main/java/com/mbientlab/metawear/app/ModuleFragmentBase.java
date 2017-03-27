@@ -101,6 +101,8 @@ public abstract class ModuleFragmentBase extends Fragment implements ServiceConn
         super.onCreate(savedInstanceState);
 
         Activity owner= getActivity();
+
+        //WJS: Deleting the following part just to not use navigationActivity (fragbus)
         if (!(owner instanceof FragmentBus)) {
             throw new ClassCastException(String.format(Locale.US, "%s %s", owner.toString(),
                     owner.getString(R.string.error_fragment_bus)));
@@ -134,6 +136,7 @@ public abstract class ModuleFragmentBase extends Fragment implements ServiceConn
     @Override
     public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
         mwBoard= ((MetaWearBleService.LocalBinder) iBinder).getMetaWearBoard(fragBus.getBtDevice());
+
         try {
             boardReady= true;
             boardReady();

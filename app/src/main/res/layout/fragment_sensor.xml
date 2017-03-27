@@ -36,5 +36,13 @@
 
     <include layout="@layout/component_sampling_control" />
     <include layout="@layout/layout_two_button" />
-    <include layout="@layout/component_line_chart" />
+
+  <android.support.design.widget.FloatingActionButton
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:id="@+id/add"
+      android:layout_gravity="right" />
+
+  <include layout="@layout/component_line_chart" />
+=
 </LinearLayout>

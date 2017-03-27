@@ -32,6 +32,7 @@
 package com.mbientlab.metawear.app;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -39,12 +40,18 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
 import com.mbientlab.metawear.AsyncOperation;
+import com.mbientlab.metawear.Message;
 import com.mbientlab.metawear.RouteManager;
 import com.mbientlab.metawear.UnsupportedModuleException;
 import com.mbientlab.metawear.app.help.HelpOption;
 import com.mbientlab.metawear.app.help.HelpOptionAdapter;
+import com.mbientlab.metawear.data.CartesianFloat;
 import com.mbientlab.metawear.module.Gyro;
+
+import java.util.Locale;
 
 /**
  * Created by etsai on 8/19/2015.
@@ -61,6 +68,9 @@ public class GyroFragment extends ThreeAxisChartFragment {
         super("rotation", R.layout.fragment_sensor_config_spinner,
                 R.string.navigation_fragment_gyro, STREAM_KEY, -INITIAL_RANGE, INITIAL_RANGE, GYR_ODR);
     }
+
+
+
 
     @Override
     protected void boardReady() throws UnsupportedModuleException {
@@ -102,12 +112,14 @@ public class GyroFragment extends ThreeAxisChartFragment {
         rotationRangeSelection.setSelection(rangeIndex);
     }
 
+
+
     @Override
     protected void setup() {
         gyroModule.setOutputDataRate(GYR_ODR);
         gyroModule.setAngularRateRange(AVAILABLE_RANGES[rangeIndex]);
 
-        AsyncOperation<RouteManager> routeManagerResult= gyroModule.routeData().fromAxes().stream(STREAM_KEY).commit();
+        AsyncOperation<RouteManager> routeManagerResult= gyroModule.routeData().fromAxes().stream(STREAM_KEY).commit(); //fromHighFreqAxes() for 100Hz+ (firmware v1.2.3+)
         routeManagerResult.onComplete(dataStreamManager);
         routeManagerResult.onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
             @Override
@@ -116,6 +128,7 @@ public class GyroFragment extends ThreeAxisChartFragment {
             }
         });
     }
+
 
     @Override
     protected void clean() {

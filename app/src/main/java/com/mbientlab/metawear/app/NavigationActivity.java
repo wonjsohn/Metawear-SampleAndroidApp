@@ -66,13 +66,17 @@ import android.view.MenuItem;
 import android.view.View;
 
 import com.mbientlab.metawear.AsyncOperation;
+import com.mbientlab.metawear.Message;
 import com.mbientlab.metawear.MetaWearBleService;
 import com.mbientlab.metawear.MetaWearBoard;
 import com.mbientlab.metawear.MetaWearBoard.ConnectionStateHandler;
+import com.mbientlab.metawear.RouteManager;
 import com.mbientlab.metawear.UnsupportedModuleException;
 import com.mbientlab.metawear.app.ModuleFragmentBase.FragmentBus;
+import com.mbientlab.metawear.module.Accelerometer;
 import com.mbientlab.metawear.module.Debug;
 import com.mbientlab.metawear.module.SensorFusion;
+import com.mbientlab.metawear.module.Switch;
 
 import java.io.File;
 import java.util.Collections;
@@ -94,23 +98,27 @@ public class NavigationActivity extends AppCompatActivity implements NavigationV
             DFU_PROGRESS_FRAGMENT_TAG= "com.mbientlab.metawear.app.NavigationActivity.DFU_PROGRESS_FRAGMENT_TAG";
     private final static Map<Integer, Class<? extends ModuleFragmentBase>> FRAGMENT_CLASSES;
     private final static Map<String, String> EXTENSION_TO_APP_TYPE;
+    public static final int REQUEST_START_BLE_SCAN= 1;
+    private final HashMap<DeviceState, MetaWearBoard> stateToBoards;
+    private MetaWearBleService.LocalBinder binder;
+    private ConnectedDevicesAdapter connectedDevices= null;
 
     static {
         Map<Integer, Class<? extends ModuleFragmentBase>> tempMap= new LinkedHashMap<>();
         tempMap.put(R.id.nav_home, HomeFragment.class);
         tempMap.put(R.id.nav_accelerometer, AccelerometerFragment.class);
-        tempMap.put(R.id.nav_barometer, BarometerFragment.class);
-        tempMap.put(R.id.nav_color_detector, ColorDetectorFragment.class);
-        tempMap.put(R.id.nav_gpio, GpioFragment.class);
+//        tempMap.put(R.id.nav_barometer, BarometerFragment.class);
+//        tempMap.put(R.id.nav_color_detector, ColorDetectorFragment.class);
+//        tempMap.put(R.id.nav_gpio, GpioFragment.class);
         tempMap.put(R.id.nav_gyro, GyroFragment.class);
-        tempMap.put(R.id.nav_haptic, HapticFragment.class);
-        tempMap.put(R.id.nav_humidity, HumidityFragment.class);
-        tempMap.put(R.id.nav_ibeacon, IBeaconFragment.class);
-        tempMap.put(R.id.nav_i2c, I2CFragment.class);
+//        tempMap.put(R.id.nav_haptic, HapticFragment.class);
+//        tempMap.put(R.id.nav_humidity, HumidityFragment.class);
+//        tempMap.put(R.id.nav_ibeacon, IBeaconFragment.class);
+//        tempMap.put(R.id.nav_i2c, I2CFragment.class);
         tempMap.put(R.id.nav_light, AmbientLightFragment.class);
         tempMap.put(R.id.nav_magnetometer, MagnetometerFragment.class);
-        tempMap.put(R.id.nav_neopixel, NeoPixelFragment.class);
-        tempMap.put(R.id.nav_proximity, ProximityFragment.class);
+//        tempMap.put(R.id.nav_neopixel, NeoPixelFragment.class);
+//        tempMap.put(R.id.nav_proximity, ProximityFragment.class);
         tempMap.put(R.id.nav_sensor_fusion, SensorFusionFragment.class);
         tempMap.put(R.id.nav_settings, SettingsFragment.class);
         tempMap.put(R.id.nav_temperature, TemperatureFragment.class);
@@ -121,6 +129,11 @@ public class NavigationActivity extends AppCompatActivity implements NavigationV
         EXTENSION_TO_APP_TYPE.put("bin", DfuBaseService.MIME_TYPE_OCTET_STREAM);
         EXTENSION_TO_APP_TYPE.put("zip", DfuBaseService.MIME_TYPE_ZIP);
     }
+
+    public NavigationActivity() {
+        stateToBoards = new HashMap<>();
+    }
+
 
     public static class ReconnectDialogFragment extends DialogFragment implements  ServiceConnection {
         private static final String KEY_BLUETOOTH_DEVICE= "com.mbientlab.metawear.app.NavigationActivity.ReconnectDialogFragment.KEY_BLUETOOTH_DEVICE";
@@ -374,7 +387,7 @@ public class NavigationActivity extends AppCompatActivity implements NavigationV
                             Snackbar.make(NavigationActivity.this.findViewById(R.id.drawer_layout), error.getLocalizedMessage(), Snackbar.LENGTH_LONG).show();
                         }
                     });
-                } else{
+                } else {
                     DfuProgressFragment.newInstance(R.string.message_manual_dfu).show(getSupportFragmentManager(), DFU_PROGRESS_FRAGMENT_TAG);
                     if (mwBoard.inMetaBootMode()) {
                         mwBoard.disconnect();
@@ -410,7 +423,9 @@ public class NavigationActivity extends AppCompatActivity implements NavigationV
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ((ModuleFragmentBase) currentFragment).showHelpDialog();
+//                ((ModuleFragmentBase) currentFragment).showHelpDialog();
+//                 startActivity(new Intent(NavigationActivity.this, ScannerGetNameActivity.class)); //scan for extra ble device.
+
             }
         });
 
@@ -478,6 +493,76 @@ public class NavigationActivity extends AppCompatActivity implements NavigationV
                 break;
         }
     }
+
+    // add extra ble device
+    public void addNewDevice(BluetoothDevice btDevice) {
+        final DeviceState newDeviceState= new DeviceState(btDevice);
+        final MetaWearBoard newBoard= binder.getMetaWearBoard(btDevice);
+
+        newDeviceState.connecting= true;
+        connectedDevices.add(newDeviceState);
+
+        stateToBoards.put(newDeviceState, newBoard);
+        newBoard.setConnectionStateHandler(new MetaWearBoard.ConnectionStateHandler() {
+            @Override
+            public void connected() {
+                newDeviceState.connecting= false;
+                connectedDevices.notifyDataSetChanged();
+
+                try {
+                    newBoard.getModule(Switch.class).routeData().fromSensor().stream("switch_stream").commit()
+                            .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+                                @Override
+                                public void success(RouteManager result) {
+                                    result.subscribe("switch_stream", new RouteManager.MessageHandler() {
+                                        @Override
+                                        public void process(Message msg) {
+                                            newDeviceState.pressed = msg.getData(Boolean.class);
+                                            connectedDevices.notifyDataSetChanged();
+                                        }
+                                    });
+                                }
+                            });
+                    final Accelerometer accelModule= newBoard.getModule(Accelerometer.class);
+                    accelModule.routeData().fromOrientation().stream("orientation_stream").commit()
+                            .onComplete(new AsyncOperation.CompletionHandler<RouteManager>() {
+                                @Override
+                                public void success(RouteManager result) {
+                                    result.subscribe("orientation_stream", new RouteManager.MessageHandler() {
+                                        @Override
+                                        public void process(Message msg) {
+                                            newDeviceState.deviceOrientation = msg.getData(Accelerometer.BoardOrientation.class).toString();
+                                            connectedDevices.notifyDataSetChanged();
+                                        }
+                                    });
+                                    accelModule.enableOrientationDetection();
+                                    accelModule.start();
+                                }
+                            });
+                } catch (UnsupportedModuleException e) {
+//                    Snackbar.make(getActivity().findViewById(R.id.activity_navigation), e.getLocalizedMessage(), Snackbar.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void disconnected() {
+                connectedDevices.remove(newDeviceState);
+            }
+
+            @Override
+            public void failure(int status, Throwable error) {
+                connectedDevices.remove(newDeviceState);
+            }
+        });
+        newBoard.connect();
+    }
+
+
+
+
+
+
+
 
     @Override
     public void onBackPressed() {
